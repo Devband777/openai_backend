@@ -45,6 +45,10 @@ const upload = multer ({
 
 app.get('/test', (req, res, next) => {
     console.log("test");
+    res.json({
+        status: true,
+        msg: 'Server is working now'
+    })
 })
   
 // routing
@@ -57,43 +61,47 @@ app.post ('/upload', upload.single ('uploadedFile'), (req, res) => {
                 msg: "request was failed"
             })
         } else {
-            const resume = PROMPT;
-            let question = resume.replace("<Resume>", text);
-        
-            let result = await axios.post('https://api.openai.com/v1/completions', {
-                "model": "text-davinci-003",
-                "prompt": `${question}`,
-                "temperature": 0.76,
-                "max_tokens": 506,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0
-            }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.OPENAI_KEY}`
-                }
-            });
+            // const resume = PROMPT;
+            // let question = resume.replace("<Resume>", text);
+            var reg_result = text.match( /[^\.!\?]+[\.!\?]+/g );
+            var counts_arr = []
+            var max_words = 0;
+            var temp_text = '';
+            for(var i = 0; i < reg_result.length; i++) {
+                var txtForSplit = reg_result[i];
+                max_words += txtForSplit.split(' ').length;
+                temp_text += reg_result[i];
+                if(max_words > 1125) {
+                    console.log('___________temp_text_________________', temp_text)
+                    console.log('___________max_words___________', max_words)
+                    let temp_result = await axios.post('https://api.openai.com/v1/completions', {
+                        "model": "text-davinci-003",
+                        "prompt": `Write a summarization of the following text: ${temp_text}`,
+                        "temperature": 0.76,
+                        "max_tokens": 1000,
+                        "top_p": 1,
+                        "frequency_penalty": 0,
+                        "presence_penalty": 0
+                    }, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${process.env.OPENAI_KEY}`
+                        }
+                    });
 
-            if(result.status === 200) {
-                res.json({
-                    status: true,
-                    msg: result.data
-                })
-            } else {
-                res.json({
-                    status: false,
-                    msg: "Request was failed"
-                })
+                    console.log('___________temp_result___________', temp_result.data.choices[0])
+                    temp_text = temp_result.data.choices[0].text;
+                    max_words = temp_result.data.choices[0].text.split(' ').length;
+                }
             }
+            //1125 words = 3000 tokens
+            res.json({
+                status: true,
+                msg: temp_text
+            })
         }
     })
 });
-  
-
-app.post('/openai', async (req, res, next) => {
-    
-})
 
 const server = app.listen(5000, function () {
     let host = server.address().address
